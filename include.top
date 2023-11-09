@@ -1,0 +1,87 @@
+*&---------------------------------------------------------------------*
+*& Include          ZCPN_TEMPLATE_ALV_I_TOP
+*&---------------------------------------------------------------------*
+TABLES: lfa1, lfb1, t001k. "declarar as tabelas que serão usadas no programa.
+***------------------------------------------------------------------***
+***------------------------------------------------------------------***
+*definição de uma tela de seleção (selection screen)
+*que é usada para coletar parâmetros e opções de seleção
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
+  SELECT-OPTIONS: s_lfa1 FOR lfa1-lifnr MEMORY ID bes,
+                  s_bukrs1 FOR lfb1-bukrs.
+  SELECTION-SCREEN SKIP 1.
+  PARAMETERS:     cb_previ AS CHECKBOX DEFAULT abap_true USER-COMMAND u1.
+  SELECTION-SCREEN SKIP 1.
+SELECTION-SCREEN END OF BLOCK b1.
+***------------------------------------------------------------------***
+***------------------------------------------------------------------***
+*usada para definir métodos que manipulam eventos de uma grade ALV
+CLASS lcl_alv_events DEFINITION FINAL.
+  PUBLIC SECTION.
+    METHODS set_alv_toolbar FOR EVENT toolbar OF cl_gui_alv_grid
+      IMPORTING e_object.
+    METHODS set_user_command FOR EVENT user_command OF cl_gui_alv_grid
+      IMPORTING e_ucomm.
+ENDCLASS.
+***------------------------------------------------------------------***
+***------------------------------------------------------------------***
+*Selecionando os campos de uma tabela
+CLASS lcl_main DEFINITION FINAL.
+  PUBLIC SECTION.
+    TYPES: BEGIN OF ty_output,
+      icon  TYPE icon-id,
+      lifnr TYPE lfa1-lifnr,
+      name1 TYPE lfa1-name1,
+      bukrs TYPE lfb1-bukrs,
+      bwkey TYPE t001k-bwkey,
+      msg   TYPE char_132,
+      END OF ty_output,
+
+      tyt_output TYPE STANDARD TABLE OF ty_output WITH KEY lifnr bukrs.
+
+      CLASS-DATA: gt_output         TYPE tyt_output,
+                go_dock_container TYPE REF TO cl_gui_docking_container,
+                go_grid           TYPE REF TO cl_gui_alv_grid.
+
+      CLASS-METHODS:
+      start,
+      hide_fields,
+      display_data,
+      create_something IMPORTING it_index_rows TYPE lvc_t_row OPTIONAL
+                       RETURNING VALUE(rd_msg) TYPE string.
+
+   PRIVATE SECTION.
+
+    CLASS-METHODS:
+      get_data RETURNING VALUE(rt_output) TYPE tyt_output,
+      call_screen,
+      get_fcat RETURNING VALUE(rt_fcat) TYPE lvc_t_fcat.
+ENDCLASS.
+*&---------------------------------------------------------------------*
+*& Module status_0100 OUTPUT
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+ SET PF-STATUS 'STATUS_100'.
+ SET TITLEBAR 'TITLE_100'.
+  "Display data
+  lcl_main=>display_data(  ).
+ENDMODULE.                                        " STATUS_0500  OUTPUT
+*&---------------------------------------------------------------------*
+*&      Module  user_command_0100  INPUT
+*&---------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+  CASE sy-ucomm.
+    WHEN 'BACK'.
+      LEAVE TO SCREEN 0.
+    WHEN OTHERS.
+  ENDCASE.
+  IF sy-ucomm = '&F03'
+  OR sy-ucomm = '&F12'
+  OR sy-ucomm = '&F15'.
+    LEAVE TO SCREEN 0.
+  ENDIF.
+ENDMODULE.                                        " USER_COMMAND
