@@ -1,84 +1,133 @@
 *&---------------------------------------------------------------------*
-*& Include          ZCPN_TEMPLATE_ALV_I_CLASS2
+*& Include          ZCPN_TEMPLATE_ALV_I_CLASS_
 *&---------------------------------------------------------------------*
-*implementação da classe lcl_alv_events que foi mencionada anteriormente.
-*o método set_alv_toolbar está sendo usado para personalizar a barra de ferramentas de uma grade ALV.
-*Ele adiciona um separador e um botão chamado "Status" com uma função associada e, opcionalmente, um ícone.
-*Isso permite que o desenvolvedor controle o layout;
-*E as funcionalidades da barra de ferramentas da grade de acordo com os requisitos do aplicativo.
+*DEFINIÇÃO DE MÉTODOS LCL_ALV_EVENTS-----------------------------------*
+CLASS lcl_alv_events DEFINITION FINAL.
+  PUBLIC SECTION.
+    METHODS: set_toolbar FOR EVENT toolbar OF cl_gui_alv_grid
+      IMPORTING e_object,
+      set_user_command FOR EVENT user_command OF cl_gui_alv_grid
+        IMPORTING e_ucomm,
+      handle_hotspot_click FOR EVENT hotspot_click OF cl_gui_alv_grid
+        IMPORTING e_row_id e_column_id es_row_no.
+ENDCLASS.
+
+*DEFINIÇÃO DE MÉTODOS LCL_MAIN-----------------------------------------*
+CLASS lcl_main DEFINITION FINAL.
+  PUBLIC SECTION.
+    TYPES: BEGIN OF ty_output,
+             icon  TYPE icon-id,
+             lifnr TYPE lfa1-lifnr,
+             name1 TYPE lfa1-name1,
+             bukrs TYPE lfb1-bukrs,
+             bwkey TYPE t001k-bwkey,
+             msg   TYPE char_132,
+           END OF ty_output,
+
+           tyt_output TYPE STANDARD TABLE OF ty_output WITH KEY lifnr bukrs.
+
+    CLASS-DATA: gt_output         TYPE tyt_output,
+                go_dock_container TYPE REF TO cl_gui_docking_container, "Docker Container
+                go_grid           TYPE REF TO cl_gui_alv_grid.
+    CLASS-METHODS:
+      start,
+      hide_fields,
+      display_data,
+      altera_status IMPORTING it_index_rows TYPE lvc_t_row OPTIONAL
+                    RETURNING VALUE(rd_msg) TYPE string,
+      display_purchase_order2 IMPORTING it_index TYPE lvc_t_row.
+
+  PRIVATE SECTION.
+    CLASS-METHODS:
+      get_data RETURNING VALUE(rt_output) TYPE tyt_output,
+      call_screen,
+      get_fcat RETURNING VALUE(rt_fcat) TYPE lvc_t_fcat.
+ENDCLASS.
+
+*DEFINIÇÃO DE MÉTODOS LCL_HANDLE_EVENTS-----------------------------------------*
+CLASS lcl_handle_events DEFINITION  FINAL.
+  PUBLIC SECTION.
+    METHODS: on_link_click   FOR EVENT link_click OF cl_salv_events_table
+      IMPORTING row column.
+ENDCLASS.                    "lcl_handle_events DEFINITION
+
+DATA: event_handler TYPE REF TO lcl_handle_events.
+
+*IMPLEMENTAÇÃO DE MÉTODOS LCL_ALV_EVENTS--------------------------------*
 CLASS lcl_alv_events IMPLEMENTATION.
-  METHOD set_alv_toolbar.
+  METHOD set_toolbar.
     "Add separator
     APPEND  VALUE #( butn_type = 3  ) TO e_object->mt_toolbar .
-    "Create
+    "Create1
     APPEND  VALUE #( quickinfo = 'TEXT-003'
-                     text      = 'Atualizar'
+                     text      = 'Exibir'
                      function  = 'FUNC1'
                      icon      = icon_execute_object ) TO e_object->mt_toolbar.
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
-* Esse método é chamado em resposta ao evento de user_command de uma grade ALV.
-* É usado para lidar com comandos do usuário.
+
+  METHOD handle_hotspot_click.
+    DATA lt_index TYPE lvc_t_row.
+    APPEND e_row_id TO lt_index.
+    lcl_main=>display_purchase_order2( EXPORTING it_index = lt_index ).
+  ENDMETHOD.
+
+
   METHOD set_user_command.
     lcl_main=>go_grid->get_selected_rows( IMPORTING et_index_rows = DATA(lt_index_selected) ).
     CASE e_ucomm.
       WHEN 'FUNC1'.
-        lcl_main=>create_something( lt_index_selected ).
+        lcl_main=>display_purchase_order2( lt_index_selected ).
     ENDCASE.
+
     lcl_main=>go_grid->set_frontend_layout(
-            EXPORTING is_layout = VALUE lvc_s_layo( cwidth_opt = abap_true
-                                                    sel_mode   = 'A' ) ).
+      EXPORTING is_layout = VALUE lvc_s_layo( cwidth_opt = abap_true
+                                                  sel_mode   = 'A' ) ).
     lcl_main=>go_grid->refresh_table_display( ).
     cl_gui_cfw=>flush( ).
   ENDMETHOD.
 ENDCLASS.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
+
+*IMPLEMENTAÇÃO DE MÉTODOS LCL_MAIN-------------------------------------*
 CLASS lcl_main IMPLEMENTATION.
   METHOD start.
     gt_output = get_data(  ).
-    IF cb_previ = abap_false OR sy-batch = abap_true.
-      lcl_main=>create_something( ).
+    IF p_previ = abap_false OR sy-batch = abap_true.
+      lcl_main=>altera_status( ).
     ELSE.
       call_screen( ).
     ENDIF.
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
+
   METHOD get_data.
     SELECT a~lifnr,
            a~name1,
            b~bukrs AS bukrs,
-           c~bukrs AS bukrsc,      "redundancia, apenas um BUKRS ja basta
            c~bwkey
       FROM lfa1 AS a
       LEFT OUTER JOIN lfb1 AS b ON a~lifnr = b~lifnr
       INNER JOIN t001k AS c ON b~bukrs = c~bukrs
       INTO TABLE @DATA(lt_data)
       WHERE a~lifnr IN @s_lfa1
-      AND b~bukrs IN @s_bukrs1.
+      AND b~bukrs IN @s_bukrs.
 
-      rt_output = VALUE #( FOR line IN lt_data ( icon  = icon_light_out
+    rt_output = VALUE #( FOR line IN lt_data ( icon  = icon_light_out
                                                lifnr = line-lifnr
                                                name1 = line-name1
                                                bukrs = line-bukrs
                                                bwkey = line-bwkey )  ).
-      IF rt_output IS INITIAL.
+    IF rt_output IS INITIAL.
       MESSAGE s398(00) WITH 'There is no data to display'.
     ENDIF.
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
+
   METHOD display_data.
     go_dock_container = NEW #( extension = 9999 ).
     go_grid = NEW #( i_parent = go_dock_container ).
 
     DATA(lo_alv_event) = NEW lcl_alv_events( ).
-    SET HANDLER: lo_alv_event->set_alv_toolbar  FOR go_grid,
-                 lo_alv_event->set_user_command FOR go_grid.
+    SET HANDLER: lo_alv_event->set_toolbar  FOR go_grid,
+                 lo_alv_event->set_user_command FOR go_grid,
+                 lo_alv_event->handle_hotspot_click FOR go_grid.
 
     DATA(lt_fcat) = get_fcat( ).
 
@@ -96,59 +145,51 @@ CLASS lcl_main IMPLEMENTATION.
         OTHERS                        = 4 ).
 
     IF sy-subrc IS NOT INITIAL.
-      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
-            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
-   METHOD call_screen.
+
+  METHOD call_screen.
     CALL SCREEN 100.
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
+
   METHOD get_fcat.
     rt_fcat = VALUE #( tabname = 'GT_OUTPUT'
-
-   (  fieldname = 'ICON '  ref_table = 'ICON'   ref_field = 'ID   '
-      scrtext_m = 'TEXT-f02' scrtext_l = 'TEXT-f02' scrtext_s = 'TEXT-f02' icon = abap_true )
-   (  fieldname = 'LIFNR'  ref_table = 'LFA1 '   ref_field = 'LIFNR' )
-   (  fieldname = 'NAME1'  ref_table = 'LFA1 '   ref_field = 'NAME1' )
-   (  fieldname = 'BUKRS1'  ref_table = 'LFB1 '   ref_field = 'BUKRS' )
-   (  fieldname = 'BUKRS2'  ref_table = 'T001K '   ref_field = 'BUKRs' )
-   (  fieldname = 'BWKEY'  ref_table = 'T001K '   ref_field = 'BWKEY' )
-   (  fieldname = 'MSG  '  scrtext_m = 'STATUS' scrtext_l = 'STATUS' scrtext_s = 'STATUS' ) ).
+      (  fieldname = 'ICON '  ref_table = 'ICON'   ref_field = 'ID   '
+          scrtext_m = 'TEXT-f02' scrtext_l = 'TEXT-f02' scrtext_s = 'TEXT-f02' icon = abap_true )
+      (  fieldname = 'LIFNR'  ref_table = 'LFA1 '   ref_field = 'LIFNR' hotspot = abap_true )  "declaração do hotspot no campo LIFNR
+      (  fieldname = 'NAME1'  ref_table = 'LFA1 '   ref_field = 'NAME1' )
+      (  fieldname = 'BUKRS1'  ref_table = 'LFB1 '   ref_field = 'BUKRS' )
+      (  fieldname = 'BUKRS2'  ref_table = 'T001K '   ref_field = 'BUKRs' )
+      (  fieldname = 'BWKEY'  ref_table = 'T001K '   ref_field = 'BWKEY' )
+      (  fieldname = 'MSG  '  scrtext_m = 'STATUS' scrtext_l = 'STATUS' scrtext_s = 'STATUS' ) ).
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
-   METHOD create_something.
 
+  METHOD altera_status. "altera_status
     TYPES tyt_lifnr TYPE TABLE OF lfa1 WITH EMPTY KEY.
     DATA lt_output TYPE SORTED TABLE OF ty_output WITH UNIQUE KEY lifnr bukrs.
-    "Build index rows
+
     IF it_index_rows IS NOT INITIAL.
       DATA(lt_index_rows) = it_index_rows .
     ELSE.
       lt_index_rows = VALUE #( FOR item IN gt_output INDEX INTO idx ( index = idx ) ) .
     ENDIF.
-    "Create auxiliary itab
+
     lt_output  = VALUE tyt_output(
                    FOR row IN lt_index_rows
                    LET item = VALUE #( gt_output[ row-index ] OPTIONAL )
-                    IN ( item ) ).
+                   IN ( item ) ).
+
     LOOP AT lt_output INTO DATA(group) GROUP BY ( lifnr = group-lifnr ).
       DATA(lt_lfa1)    = VALUE tyt_output( ).
       DATA(lv_error)    = VALUE i( ).
       DATA(lv_success)  = VALUE i( ).
       LOOP AT GROUP group ASSIGNING FIELD-SYMBOL(<line>).
         lt_lfa1 = VALUE #( BASE lt_lfa1 ( <line> ) ).
-*        DATA(ls_lfa1) = VALUE #( lifnr = <line>-lifnr ).
-*        APPEND ls_lfa1 TO lt_lfa1.                                   "OpenAI
-*        lt_lfa1 = VALUE tyt_lifnr( BASE lt_lfa1 ( <line>-lifnr ) ). "OpenAI
       ENDLOOP.
-*      CALL FUNCTION 'SOMETHING'
+
       LOOP AT GROUP group ASSIGNING <line>.
-        IF 1 EQ 2 .
+        IF 1 = 2 .
           <line>-icon = icon_red_light.
           <line>-msg = 'ERROR'.
           ADD 1 TO lv_error.
@@ -165,15 +206,82 @@ CLASS lcl_main IMPLEMENTATION.
     "Data processed: & Success / & Error
     MESSAGE s398(00) WITH 'Data processed Success/Error' lv_success  '/' lv_error .
   ENDMETHOD.
-***------------------------------------------------------------------***
-***------------------------------------------------------------------***
-   METHOD hide_fields.
+
+  METHOD display_purchase_order2.
+    IF it_index IS INITIAL.
+      MESSAGE 'Por favor selecionar uma ou mais linhas de registro' TYPE 'S' DISPLAY LIKE 'E'.
+      RETURN.
+    ENDIF.
+    DATA lo_alv TYPE REF TO cl_salv_table.
+    DATA lt_aux TYPE tyt_output.
+    LOOP AT it_index INTO DATA(ls_index).
+      READ TABLE gt_output INDEX ls_index-index INTO DATA(ls_line).
+      APPEND ls_line TO lt_aux.
+    ENDLOOP.
+
+    IF lt_aux IS NOT INITIAL.
+      SELECT ebeln lifnr bukrs bsart aedat FROM ekko
+        INTO CORRESPONDING FIELDS OF TABLE lt_purchaseorders
+        FOR ALL ENTRIES IN lt_aux
+        WHERE lifnr = lt_aux-lifnr
+        AND   bukrs = lt_aux-bukrs.
+
+      IF lt_purchaseorders IS  NOT INITIAL.
+        TRY.
+            cl_salv_table=>factory(
+              IMPORTING
+                r_salv_table = lo_alv
+                CHANGING
+                  t_table      = lt_purchaseorders ).
+          CATCH cx_salv_msg.
+        ENDTRY.
+
+        DATA lr_functions TYPE REF TO cl_salv_functions_list.
+        DATA: lr_columns   TYPE REF TO cl_salv_columns_table.
+        DATA: lr_column    TYPE REF TO cl_salv_column_table.
+        DATA: lr_events    TYPE REF TO cl_salv_events_table.
+
+        lr_functions = lo_alv->get_functions( ).
+        lr_functions->set_all( abap_true ).
+        lr_columns = lo_alv->get_columns( ).
+        lr_column ?= lr_columns->get_column( 'EBELN' ).
+        lr_column->set_cell_type( if_salv_c_cell_type=>hotspot ).
+        lo_alv->set_screen_popup(
+          start_column = '25'
+          end_column   = '100'
+          start_line   = '6'
+          end_line     = '10' ).
+        "events
+        lr_events = lo_alv->get_event( ).
+        CREATE OBJECT event_handler.
+        SET HANDLER event_handler->on_link_click FOR lr_events.
+        lo_alv->display( ).
+      ELSE.
+        MESSAGE 'Não há pedido de compras para o(s) fornecedor(res)' TYPE 'S' DISPLAY LIKE 'W'.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD hide_fields.
     LOOP AT SCREEN.
-      IF screen-group1 EQ 'M1'.
-        screen-invisible = SWITCH #( cb_previ WHEN abap_true THEN 1 ELSE 0 ) .
-        screen-input     = SWITCH #( cb_previ WHEN abap_true THEN 0 ELSE 1 ) .
+      IF screen-group1 = 'M1'.
+        screen-invisible = SWITCH #( p_previ WHEN abap_true THEN 1 ELSE 0 ) .
+
+        screen-input     = SWITCH #( p_previ WHEN abap_true THEN 0 ELSE 1 ) .
+
         MODIFY SCREEN.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
 ENDCLASS.
+
+*IMPLEMENTAÇÃO DE MÉTODOS lcl_handle_events-------------------------------------*
+CLASS lcl_handle_events IMPLEMENTATION.
+  METHOD on_link_click.
+    READ TABLE lt_purchaseorders INTO DATA(itab) INDEX row.
+    IF sy-subrc = 0.
+      SET PARAMETER ID 'BES' FIELD itab-ebeln.
+      CALL TRANSACTION 'ME23N' AND SKIP FIRST SCREEN.
+    ENDIF.
+  ENDMETHOD.                    "on_link_click
+ENDCLASS.                    "lcl_handle_events IMPLEMENTATION
