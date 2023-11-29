@@ -1,0 +1,54 @@
+*&---------------------------------------------------------------------*
+*& Include          ZCPN_TEMPLATE_ALV_I_PBO_PAI
+*&---------------------------------------------------------------------*
+*MODULO PBO_0100------------------------------------------------------------*
+MODULE status_0100 OUTPUT. "PBO
+ SET PF-STATUS 'STATUS_100'.
+ SET TITLEBAR 'TITLE_100'.
+  "Display data
+  lcl_main=>display_data(  ).
+ENDMODULE.                                  " STATUS_0500  OUTPUT
+
+*MODULO PAI_0100------------------------------------------------------------*
+MODULE user_command_0100 INPUT. "PAI
+  CASE sy-ucomm.
+    WHEN 'BACK'.
+      LEAVE TO SCREEN 0.
+    WHEN OTHERS.
+  ENDCASE.
+  IF sy-ucomm = '&F03'
+  OR sy-ucomm = '&F12'
+  OR sy-ucomm = '&F15'.
+    LEAVE TO SCREEN 0.
+  ENDIF.
+ENDMODULE.
+
+**&---------------------------------------------------------------------*
+**& Module status_0200 OUTPUT
+**&---------------------------------------------------------------------*
+**&
+**&---------------------------------------------------------------------*
+**MODULO PBO_0200------------------------------------------------------------*
+*MODULE status_0200 OUTPUT.
+* SET PF-STATUS 'STATUS_200'.
+* SET TITLEBAR 'ITLE_200'.
+*
+*ENDMODULE.
+**&---------------------------------------------------------------------*
+**&      Module  user_command_0200  INPUT
+**&---------------------------------------------------------------------*
+**       text
+**----------------------------------------------------------------------*
+**MODULO PAI_0200------------------------------------------------------------*
+*MODULE user_command_0200 INPUT.
+*  CASE sy-ucomm.
+*    WHEN 'BACK2'.
+*      LEAVE TO SCREEN 100.
+*    WHEN OTHERS.
+*  ENDCASE.
+*  IF sy-ucomm = '&F03'
+*  OR sy-ucomm = '&F12'
+*  OR sy-ucomm = '&F15'.
+*    LEAVE TO SCREEN 100.
+*  ENDIF.
+*ENDMODULE.
