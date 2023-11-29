@@ -1,7 +1,13 @@
-REPORT ZP_RELATORIO_ALV.
+*&---------------------------------------------------------------------*
+*& Report ZP_CPN_RELATORIO_ALV
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+REPORT zp_cpn_relatorio_alv.
 
-INCLUDE ZCPN_TEMPLATE_ALV_I_TOP2.
-INCLUDE ZCPN_TEMPLATE_ALV_I_CLASS2.
+INCLUDE zcpn_template_alv_i_top_.
+INCLUDE zcpn_template_alv_i_class_.
+INCLUDE zcpn_template_alv_i_pbo_pai.
 
 AT SELECTION-SCREEN OUTPUT.
   lcl_main=>hide_fields( ).
